@@ -4,19 +4,18 @@ import "time"
 
 type Config struct {
 	CookieName       string
-	SecretKey        []byte // 32 bytes recommended
+	SecretKey        []byte
 	MaxAge           time.Duration
 	Path             string
 	Domain           string
 	Secure           bool
 	HttpOnly         bool
-	SameSite         string        // "Lax", "Strict", "None"
-	RotationInterval time.Duration // auto-regen session ID
+	SameSite         string
+	RotationInterval time.Duration
 }
 
 type ConfigOption func(*Config)
 
-// DefaultConfig returns a production-ready configuration
 func DefaultConfig(secretKey []byte, opts ...ConfigOption) Config {
 	cfg := Config{
 		CookieName:       "sessionx",
@@ -36,14 +35,13 @@ func DefaultConfig(secretKey []byte, opts ...ConfigOption) Config {
 	return cfg
 }
 
-// DevConfig returns a development-friendly configuration (Secure=false for localhost)
 func DevConfig(secretKey []byte, opts ...ConfigOption) Config {
 	cfg := Config{
 		CookieName:       "sessionx",
 		SecretKey:        secretKey,
 		MaxAge:           24 * time.Hour,
 		Path:             "/",
-		Secure:           false, // Allow HTTP for localhost
+		Secure:           false,
 		HttpOnly:         true,
 		SameSite:         "Lax",
 		RotationInterval: 15 * time.Minute,

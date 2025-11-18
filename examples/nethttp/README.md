@@ -128,6 +128,56 @@ mux.HandleFunc("/logout", func(w http.ResponseWriter, r *http.Request) {
 })
 ```
 
+## Error Handling
+
+SessionX provides explicit error types for better error handling:
+
+```go
+cfg := session.DevConfig(secretKey)
+manager, err := session.NewManager(cfg)
+if err != nil {
+    // Handle specific errors
+    if errors.Is(err, session.ErrInvalidSecretKey) {
+        log.Fatal("Secret key must be 16, 24, or 32 bytes")
+    }
+    log.Fatal(err)
+}
+```
+
+### Available Error Types
+
+| Error | Description |
+|-------|-------------|
+| `ErrInvalidSecretKey` | Secret key is not 16, 24, or 32 bytes |
+| `ErrInvalidSession` | Session cookie is corrupted or tampered |
+| `ErrSessionExpired` | Session has exceeded its MaxAge |
+| `ErrDecryptionFailed` | Failed to decrypt session (wrong key) |
+| `ErrEncryptionFailed` | Failed to encrypt session data |
+| `ErrMarshalFailed` | Failed to marshal session to JSON |
+| `ErrUnmarshalFailed` | Failed to unmarshal session from JSON |
+
+### Error Handling Example
+
+```go
+import (
+    "errors"
+    "github.com/abmcmanu/sessionx/pkg/session"
+)
+
+// Validate secret key at startup
+cfg := session.DefaultConfig([]byte("short"))
+manager, err := session.NewManager(cfg)
+if err != nil {
+    var sessionErr *session.SessionError
+    if errors.As(err, &sessionErr) {
+        log.Printf("Session error in %s: %v", sessionErr.Op, sessionErr.Err)
+    }
+    if errors.Is(err, session.ErrInvalidSecretKey) {
+        log.Fatal("Please provide a valid 32-byte secret key")
+    }
+}
+```
+
 ## Security Best Practices
 
 1. **Always use a strong secret key (32 bytes)**
@@ -135,13 +185,21 @@ mux.HandleFunc("/logout", func(w http.ResponseWriter, r *http.Request) {
    secretKey := []byte("your-32-byte-secret-key-here!")
    ```
 
-2. **Use `DefaultConfig()` in production** - Ensures `Secure=true`
+2. **Validate secret key at startup** - Use `NewManager()` error handling
+   ```go
+   manager, err := session.NewManager(cfg)
+   if err != nil {
+       log.Fatal(err)
+   }
+   ```
 
-3. **Set appropriate `MaxAge`** - Shorter for sensitive apps
+3. **Use `DefaultConfig()` in production** - Ensures `Secure=true`
 
-4. **Use `SameSite="Strict"`** for maximum CSRF protection
+4. **Set appropriate `MaxAge`** - Shorter for sensitive apps
 
-5. **Enable session rotation** for long-lived sessions
+5. **Use `SameSite="Strict"`** for maximum CSRF protection
+
+6. **Enable session rotation** for long-lived sessions
    ```go
    session.WithRotationInterval(15*time.Minute)
    ```

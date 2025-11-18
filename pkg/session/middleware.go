@@ -35,7 +35,6 @@ type responseWriterWrapper struct {
 	saved   bool
 }
 
-// WriteHeader saves the session before writing headers
 func (rw *responseWriterWrapper) WriteHeader(status int) {
 	if !rw.saved {
 		_ = rw.manager.Save(rw.ResponseWriter, rw.session)

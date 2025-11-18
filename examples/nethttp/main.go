@@ -8,19 +8,19 @@ import (
 )
 
 func main() {
-	// DevConfig for local development (Secure=false)
-	// Customize with options: session duration, cookie name, etc.
 	cfg := session.DevConfig(
 		[]byte("0123456789abcdef0123456789abcdef"),
-		session.WithMaxAge(2*time.Hour),        // Session expires after 2 hours
-		session.WithCookieName("my_session"),   // Custom cookie name
+		session.WithMaxAge(2*time.Hour),
+		session.WithCookieName("my_session"),
 	)
-	manager := session.NewManager(cfg)
+	manager, err := session.NewManager(cfg)
+	if err != nil {
+		panic(err)
+	}
 
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		// Ignore requests for favicon
 		if r.URL.Path != "/" {
 			http.NotFound(w, r)
 			return
@@ -30,14 +30,8 @@ func main() {
 		count, _ := sess.Data["count"].(float64)
 		sess.Data["count"] = count + 1
 
-		_, err := fmt.Fprintf(w, "Visits: %.0f\n", sess.Data["count"])
-		if err != nil {
-			return
-		}
+		_, _ = fmt.Fprintf(w, "Visits: %.0f\n", sess.Data["count"])
 	})
 
-	err := http.ListenAndServe(":8080", manager.Middleware(mux))
-	if err != nil {
-		return
-	}
+	_ = http.ListenAndServe(":8080", manager.Middleware(mux))
 }

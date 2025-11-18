@@ -6,38 +6,38 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"io"
 	"net/http"
 	"time"
-)
-
-var (
-	ErrInvalidSession = errors.New("invalid or corrupted session")
 )
 
 type Manager struct {
 	cfg Config
 }
 
-func NewManager(cfg Config) *Manager {
-	return &Manager{cfg: cfg}
+func NewManager(cfg Config) (*Manager, error) {
+	keyLen := len(cfg.SecretKey)
+	if keyLen != 16 && keyLen != 24 && keyLen != 32 {
+		return nil, newError("NewManager", ErrInvalidSecretKey)
+	}
+
+	return &Manager{cfg: cfg}, nil
 }
 
 func (m *Manager) encrypt(data []byte) (string, error) {
 	block, err := aes.NewCipher(m.cfg.SecretKey)
 	if err != nil {
-		return "", err
+		return "", newError("encrypt", ErrEncryptionFailed)
 	}
 
 	gcm, err := cipher.NewGCM(block)
 	if err != nil {
-		return "", err
+		return "", newError("encrypt", ErrEncryptionFailed)
 	}
 
 	nonce := make([]byte, gcm.NonceSize())
 	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
-		return "", err
+		return "", newError("encrypt", ErrEncryptionFailed)
 	}
 
 	encrypted := gcm.Seal(nonce, nonce, data, nil)
@@ -47,38 +47,42 @@ func (m *Manager) encrypt(data []byte) (string, error) {
 func (m *Manager) decrypt(encoded string) ([]byte, error) {
 	raw, err := base64.RawStdEncoding.DecodeString(encoded)
 	if err != nil {
-		return nil, err
+		return nil, newError("decrypt", ErrInvalidSession)
 	}
 
 	block, err := aes.NewCipher(m.cfg.SecretKey)
 	if err != nil {
-		return nil, err
+		return nil, newError("decrypt", ErrDecryptionFailed)
 	}
 
 	gcm, err := cipher.NewGCM(block)
 	if err != nil {
-		return nil, err
+		return nil, newError("decrypt", ErrDecryptionFailed)
 	}
 
 	nonceSize := gcm.NonceSize()
 	if len(raw) < nonceSize {
-		return nil, ErrInvalidSession
+		return nil, newError("decrypt", ErrInvalidSession)
 	}
 
 	nonce, ciphertext := raw[:nonceSize], raw[nonceSize:]
-	return gcm.Open(nil, nonce, ciphertext, nil)
+	decrypted, err := gcm.Open(nil, nonce, ciphertext, nil)
+	if err != nil {
+		return nil, newError("decrypt", ErrDecryptionFailed)
+	}
+
+	return decrypted, nil
 }
 
 func (m *Manager) Load(r *http.Request) (*Session, error) {
 	c, err := r.Cookie(m.cfg.CookieName)
 	if err != nil {
-		// no session — create new
 		return m.New(), nil
 	}
 
 	decrypted, err := m.decrypt(c.Value)
 	if err != nil {
-		return m.New(), nil // treat as no session
+		return m.New(), nil
 	}
 
 	var sess Session
@@ -87,7 +91,7 @@ func (m *Manager) Load(r *http.Request) (*Session, error) {
 	}
 
 	if m.cfg.MaxAge > 0 && time.Since(sess.UpdatedAt) > m.cfg.MaxAge {
-		return m.New(), nil // session expired, create new one
+		return m.New(), nil
 	}
 
 	return &sess, nil
@@ -107,7 +111,7 @@ func (m *Manager) Save(w http.ResponseWriter, sess *Session) error {
 
 	raw, err := json.Marshal(sess)
 	if err != nil {
-		return err
+		return newError("Save", ErrMarshalFailed)
 	}
 
 	encrypted, err := m.encrypt(raw)
