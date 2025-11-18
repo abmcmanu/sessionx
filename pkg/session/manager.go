@@ -86,6 +86,10 @@ func (m *Manager) Load(r *http.Request) (*Session, error) {
 		return m.New(), nil
 	}
 
+	if m.cfg.MaxAge > 0 && time.Since(sess.UpdatedAt) > m.cfg.MaxAge {
+		return m.New(), nil // session expired, create new one
+	}
+
 	return &sess, nil
 }
 
