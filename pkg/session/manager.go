@@ -115,8 +115,10 @@ func (m *Manager) Save(w http.ResponseWriter, sess *Session) error {
 		Name:     m.cfg.CookieName,
 		Value:    encrypted,
 		Path:     m.cfg.Path,
+		Domain:   m.cfg.Domain,
 		HttpOnly: m.cfg.HttpOnly,
 		Secure:   m.cfg.Secure,
+		SameSite: parseSameSite(m.cfg.SameSite),
 		MaxAge:   int(m.cfg.MaxAge.Seconds()),
 	}
 
@@ -137,6 +139,19 @@ func (m *Manager) Destroy(w http.ResponseWriter) {
 
 func (m *Manager) newID() string {
 	b := make([]byte, 16)
-	io.ReadFull(rand.Reader, b)
+	_, _ = io.ReadFull(rand.Reader, b)
 	return base64.RawURLEncoding.EncodeToString(b)
+}
+
+func parseSameSite(s string) http.SameSite {
+	switch s {
+	case "Strict":
+		return http.SameSiteStrictMode
+	case "None":
+		return http.SameSiteNoneMode
+	case "Lax":
+		return http.SameSiteLaxMode
+	default:
+		return http.SameSiteLaxMode
+	}
 }
