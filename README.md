@@ -1,4 +1,4 @@
-# SessionX
+# SessionX 
 
 [![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.23-blue.svg)](https://golang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -16,7 +16,7 @@ A lightweight, secure, and flexible session management library for Go web applic
 - 🛠️ **Developer Friendly**: Simple API, functional options pattern
 - ⚡ **Production Ready**: Comprehensive error handling, expiration validation
 
-## 📋 Table of Contents
+## 📋 Table of Contents 
 
 - [Installation](#-installation)
 - [Quick Start](#-quick-start)
@@ -33,6 +33,7 @@ A lightweight, secure, and flexible session management library for Go web applic
 - [Why SessionX?](#-why-sessionx)
 - [Contributing](#-contributing)
 - [License](#-license)
+
 
 ## 🚀 Installation
 
