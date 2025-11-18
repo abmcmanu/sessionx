@@ -4,10 +4,17 @@ import (
 	"fmt"
 	"github.com/abmcmanu/sessionx/pkg/session"
 	"net/http"
+	"time"
 )
 
 func main() {
-	cfg := session.DefaultConfig([]byte("0123456789abcdef0123456789abcdef"))
+	// DevConfig for local development (Secure=false)
+	// Customize with options: session duration, cookie name, etc.
+	cfg := session.DevConfig(
+		[]byte("0123456789abcdef0123456789abcdef"),
+		session.WithMaxAge(2*time.Hour),        // Session expires after 2 hours
+		session.WithCookieName("my_session"),   // Custom cookie name
+	)
 	manager := session.NewManager(cfg)
 
 	mux := http.NewServeMux()
