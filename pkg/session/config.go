@@ -12,6 +12,7 @@ type Config struct {
 	HttpOnly         bool
 	SameSite         string
 	RotationInterval time.Duration
+	Store            Store
 }
 
 type ConfigOption func(*Config)
@@ -99,5 +100,11 @@ func WithSameSite(sameSite string) ConfigOption {
 func WithRotationInterval(d time.Duration) ConfigOption {
 	return func(c *Config) {
 		c.RotationInterval = d
+	}
+}
+
+func WithStore(store Store) ConfigOption {
+	return func(c *Config) {
+		c.Store = store
 	}
 }

@@ -80,48 +80,74 @@ func (m *Manager) Load(r *http.Request) (*Session, error) {
 		return m.New(), nil
 	}
 
-	decrypted, err := m.decrypt(c.Value)
-	if err != nil {
-		return m.New(), nil
-	}
+	var sess *Session
 
-	var sess Session
-	if err := json.Unmarshal(decrypted, &sess); err != nil {
-		return m.New(), nil
+	if m.cfg.Store != nil {
+		sess, err = m.cfg.Store.Load(c.Value)
+		if err != nil {
+			return m.New(), nil
+		}
+	} else {
+		decrypted, err := m.decrypt(c.Value)
+		if err != nil {
+			return m.New(), nil
+		}
+
+		var s Session
+		if err := json.Unmarshal(decrypted, &s); err != nil {
+			return m.New(), nil
+		}
+		sess = &s
 	}
 
 	if m.cfg.MaxAge > 0 && time.Since(sess.UpdatedAt) > m.cfg.MaxAge {
 		return m.New(), nil
 	}
 
-	return &sess, nil
+	if m.cfg.RotationInterval > 0 && time.Since(sess.RotatedAt) > m.cfg.RotationInterval {
+		m.Rotate(sess)
+	}
+
+	return sess, nil
 }
 
 func (m *Manager) New() *Session {
+	now := time.Now()
 	return &Session{
 		ID:        m.newID(),
 		Data:      map[string]interface{}{},
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
+		CreatedAt: now,
+		UpdatedAt: now,
+		RotatedAt: now,
 	}
 }
 
 func (m *Manager) Save(w http.ResponseWriter, sess *Session) error {
 	sess.UpdatedAt = time.Now()
 
-	raw, err := json.Marshal(sess)
-	if err != nil {
-		return newError("Save", ErrMarshalFailed)
-	}
+	var cookieValue string
 
-	encrypted, err := m.encrypt(raw)
-	if err != nil {
-		return err
+	if m.cfg.Store != nil {
+		if err := m.cfg.Store.Save(sess); err != nil {
+			return err
+		}
+		cookieValue = sess.ID
+	} else {
+		raw, err := json.Marshal(sess)
+		if err != nil {
+			return newError("Save", ErrMarshalFailed)
+		}
+
+		encrypted, err := m.encrypt(raw)
+		if err != nil {
+			return err
+		}
+		cookieValue = encrypted
 	}
 
 	cookie := &http.Cookie{
 		Name:     m.cfg.CookieName,
-		Value:    encrypted,
+		Value:    cookieValue,
 		Path:     m.cfg.Path,
 		Domain:   m.cfg.Domain,
 		HttpOnly: m.cfg.HttpOnly,
@@ -134,7 +160,14 @@ func (m *Manager) Save(w http.ResponseWriter, sess *Session) error {
 	return nil
 }
 
-func (m *Manager) Destroy(w http.ResponseWriter) {
+func (m *Manager) Destroy(w http.ResponseWriter, r *http.Request) error {
+	if m.cfg.Store != nil {
+		c, err := r.Cookie(m.cfg.CookieName)
+		if err == nil {
+			_ = m.cfg.Store.Delete(c.Value)
+		}
+	}
+
 	expired := &http.Cookie{
 		Name:     m.cfg.CookieName,
 		Value:    "",
@@ -143,6 +176,12 @@ func (m *Manager) Destroy(w http.ResponseWriter) {
 		HttpOnly: true,
 	}
 	http.SetCookie(w, expired)
+	return nil
+}
+
+func (m *Manager) Rotate(sess *Session) {
+	sess.ID = m.newID()
+	sess.RotatedAt = time.Now()
 }
 
 func (m *Manager) newID() string {
