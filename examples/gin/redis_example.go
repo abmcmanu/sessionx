@@ -10,7 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func main() {
+func ExampleRedis() {
 	store, err := redisstore.NewRedisStore(redisstore.Options{
 		Addr:   "localhost:6379",
 		Prefix: "gin_session:",

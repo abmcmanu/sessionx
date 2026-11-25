@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/abmcmanu/sessionx/pkg/session"
 	sessiongin "github.com/abmcmanu/sessionx/pkg/gin"
+	"github.com/abmcmanu/sessionx/pkg/session"
 	"github.com/gin-gonic/gin"
 	"net/http"
 	"time"
@@ -27,11 +27,11 @@ func ExampleAutomaticRotation() {
 		timeSinceRotation := time.Since(sess.RotatedAt)
 
 		c.JSON(http.StatusOK, gin.H{
-			"session_id":        sess.ID,
-			"visits":            sess.Data["count"],
-			"last_rotated":      sess.RotatedAt,
+			"session_id":          sess.ID,
+			"visits":              sess.Data["count"],
+			"last_rotated":        sess.RotatedAt,
 			"time_since_rotation": timeSinceRotation.Seconds(),
-			"message":           "Session will rotate automatically after 30 seconds",
+			"message":             "Session will rotate automatically after 30 seconds",
 		})
 	})
 
@@ -103,13 +103,13 @@ func ExampleRotationWithMetrics() {
 		sess := sessiongin.Get(c)
 
 		c.JSON(http.StatusOK, gin.H{
-			"session_id": sess.ID,
-			"created_at": sess.CreatedAt,
-			"updated_at": sess.UpdatedAt,
-			"rotated_at": sess.RotatedAt,
-			"age":        time.Since(sess.CreatedAt).Seconds(),
+			"session_id":   sess.ID,
+			"created_at":   sess.CreatedAt,
+			"updated_at":   sess.UpdatedAt,
+			"rotated_at":   sess.RotatedAt,
+			"age":          time.Since(sess.CreatedAt).Seconds(),
 			"rotation_age": time.Since(sess.RotatedAt).Seconds(),
-			"data":       sess.Data,
+			"data":         sess.Data,
 		})
 	})
 

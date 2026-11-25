@@ -1,41 +1,41 @@
-# SessionX 
+# SessionX
 
 [![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.23-blue.svg)](https://golang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 A lightweight, secure, and flexible session management library for Go web applications. SessionX provides encrypted cookie-based sessions with optional Redis backend for scalability.
 
-## ✨ Features
+## Features
 
-- 🔒 **Secure by Default**: AES-GCM encryption, HttpOnly, Secure, SameSite cookies
-- 🚀 **Flexible Storage**: Cookie-based (default) or Redis for distributed systems
-- 🔄 **Session Rotation**: Automatic and manual session ID rotation
-- 💬 **Flash Messages**: Built-in support for one-time notifications
-- 🎯 **Framework Agnostic**: Works with net/http, Gin, and any Go web framework
-- 📦 **Modular Design**: Optional Redis store, no forced dependencies
-- 🛠️ **Developer Friendly**: Simple API, functional options pattern
-- ⚡ **Production Ready**: Comprehensive error handling, expiration validation
+- **Secure by Default**: AES-GCM encryption, HttpOnly, Secure, SameSite cookies
+- **Flexible Storage**: Cookie-based (default) or Redis for distributed systems
+- **Session Rotation**: Automatic and manual session ID rotation
+- **Flash Messages**: Built-in support for one-time notifications
+- **Framework Agnostic**: Works with net/http, Gin, and any Go web framework
+- **Modular Design**: Optional Redis store, no forced dependencies
+- **Developer Friendly**: Simple API, functional options pattern
+- **Production Ready**: Comprehensive error handling, expiration validation
 
-## 📋 Table of Contents 
+## Table of Contents
 
-- [Installation](#-installation)
-- [Quick Start](#-quick-start)
-- [Configuration](#️-configuration)
-- [Usage Examples](#-usage-examples)
-- [Session Rotation](#-session-rotation)
-- [Flash Messages](#-flash-messages)
-- [Redis Store](#️-redis-store)
-- [Framework Integration](#-framework-integration)
-- [API Reference](#-api-reference)
-- [Security](#-security)
-- [Testing](#-testing)
-- [Architecture](#-architecture)
-- [Why SessionX?](#-why-sessionx)
-- [Contributing](#-contributing)
-- [License](#-license)
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [Configuration](#configuration)
+- [Usage Examples](#usage-examples)
+- [Session Rotation](#session-rotation)
+- [Flash Messages](#flash-messages)
+- [Redis Store](#redis-store)
+- [Framework Integration](#framework-integration)
+- [API Reference](#api-reference)
+- [Security](#security)
+- [Testing](#testing)
+- [Architecture](#architecture)
+- [Why SessionX?](#why-sessionx)
+- [Contributing](#contributing)
+- [License](#license)
 
 
-## 🚀 Installation
+## Installation
 
 ### Core Package
 
@@ -53,7 +53,7 @@ go get github.com/abmcmanu/sessionx/pkg/gin
 go get github.com/abmcmanu/sessionx/optional/store/redis
 ```
 
-## ⚡ Quick Start
+## Quick Start
 
 ### Basic Example (net/http)
 
@@ -124,7 +124,7 @@ func main() {
 }
 ```
 
-## ⚙️ Configuration
+## Configuration
 
 ### Configuration Helpers
 
@@ -167,7 +167,7 @@ cfg := session.DefaultConfig(
 | `WithRotationInterval(d time.Duration)` | Auto-rotation interval | 15 minutes |
 | `WithStore(store Store)` | External store (Redis) | nil (cookie-based) |
 
-## 📖 Usage Examples
+## Usage Examples
 
 ### Authentication
 
@@ -226,7 +226,7 @@ http.HandleFunc("/cart/add", func(w http.ResponseWriter, r *http.Request) {
 })
 ```
 
-## 🔄 Session Rotation
+## Session Rotation
 
 Session rotation prevents session fixation attacks by changing the session ID.
 
@@ -258,7 +258,7 @@ http.HandleFunc("/login", func(w http.ResponseWriter, r *http.Request) {
 })
 ```
 
-## 💬 Flash Messages
+## Flash Messages
 
 Flash messages are one-time notifications that survive a single redirect.
 
@@ -296,7 +296,7 @@ http.HandleFunc("/result", func(w http.ResponseWriter, r *http.Request) {
 - `GetFlashes()` - Get and remove all flashes
 - `HasFlash(key)` - Check if flash exists without removing
 
-## 🗄️ Redis Store
+## Redis Store
 
 For multi-server deployments, use Redis to store sessions.
 
@@ -342,14 +342,14 @@ cfg := session.DefaultConfig(
 
 ### Benefits
 
-- ✅ Sessions work across multiple servers
-- ✅ Sessions survive application restarts
-- ✅ Better scalability for high traffic
-- ✅ Smaller cookies (only session ID)
+- Sessions work across multiple servers
+- Sessions survive application restarts
+- Better scalability for high traffic
+- Smaller cookies (only session ID)
 
 See [Redis Store Documentation](./optional/store/redis/README.md) for details.
 
-## 🎨 Framework Integration
+## Framework Integration
 
 ### net/http (Standard Library)
 
@@ -379,7 +379,7 @@ Access session: `sess := sessiongin.Get(c)`
 
 SessionX is framework-agnostic. Wrap your handler/middleware to call `manager.Load()` and `manager.Save()`.
 
-## 📚 API Reference
+## API Reference
 
 ### Manager
 
@@ -433,7 +433,7 @@ type Store interface {
 }
 ```
 
-## 🔒 Security
+## Security
 
 ### Best Practices
 
@@ -465,37 +465,34 @@ type Store interface {
 
 ### Security Features
 
-- ✅ AES-GCM encryption (authenticated encryption)
-- ✅ Automatic session expiration
-- ✅ Session ID rotation
-- ✅ HttpOnly cookies (prevents XSS)
-- ✅ Secure flag for HTTPS
-- ✅ SameSite attribute (CSRF protection)
-- ✅ Domain validation
+- AES-GCM encryption (authenticated encryption)
+- Automatic session expiration
+- Session ID rotation
+- HttpOnly cookies (prevents XSS)
+- Secure flag for HTTPS
+- SameSite attribute (CSRF protection)
+- Domain validation
 
 See [SECURITY.md](./SECURITY.md) for vulnerability reporting.
 
-## 🧪 Testing
+## Testing
+
+Each module has its own `go.mod`, so run the tests from each module directory:
 
 ```bash
-# Run all tests
 go test ./...
-
-# Run with coverage
-go test -cover ./...
-
-# Run specific package
-go test ./pkg/session
-go test ./pkg/gin
-go test ./optional/store/redis
+(cd pkg/gin && go test ./...)
+REDIS_ADDR=localhost:6379 go -C optional/store/redis test ./...
 ```
 
-## 📊 Architecture
+The Redis store tests are skipped when `REDIS_ADDR` is not set.
+
+## Architecture
 
 ### Cookie-based Mode (Default)
 
 ```
-Request → Load (decrypt cookie) → Handler (modify session) → Save (encrypt cookie) → Response
+Request -> Load (decrypt cookie) -> Handler (modify session) -> Save (encrypt cookie) -> Response
 ```
 
 - Session data encrypted in cookie
@@ -506,8 +503,8 @@ Request → Load (decrypt cookie) → Handler (modify session) → Save (encrypt
 ### Redis Mode
 
 ```
-Request → Load (fetch from Redis) → Handler (modify session) → Save (store in Redis) → Response
-                      ↓                                                      ↓
+Request -> Load (fetch from Redis) -> Handler (modify session) -> Save (store in Redis) -> Response
+                      |                                                      |
                   Session ID in cookie                            Session data in Redis
 ```
 
@@ -516,19 +513,19 @@ Request → Load (fetch from Redis) → Handler (modify session) → Save (store
 - Works across multiple servers
 - No practical size limit
 
-## 🌟 Why SessionX?
+## Why SessionX?
 
 | Feature | SessionX | gorilla/sessions | scs |
 |---------|----------|------------------|-----|
-| Cookie encryption | ✅ AES-GCM | ✅ AES | ❌ |
-| Redis support | ✅ Optional | ✅ Required | ✅ |
-| Flash messages | ✅ Built-in | ✅ | ❌ |
-| Session rotation | ✅ Automatic/Manual | ❌ | ❌ |
-| Gin integration | ✅ Separate package | ❌ | ❌ |
-| Functional options | ✅ | ❌ | ✅ |
+| Cookie encryption | Yes (AES-GCM) | Yes (AES) | No |
+| Redis support | Yes (optional) | Yes (required) | Yes |
+| Flash messages | Yes (built-in) | Yes | No |
+| Session rotation | Yes (automatic/manual) | No | No |
+| Gin integration | Yes (separate package) | No | No |
+| Functional options | Yes | No | Yes |
 | Go version | 1.23+ | 1.18+ | 1.20+ |
 
-## 🤝 Contributing
+## Contributing
 
 Contributions are welcome! Please read [CONTRIBUTING.md](./CONTRIBUTING.md) for guidelines.
 
@@ -538,23 +535,23 @@ Contributions are welcome! Please read [CONTRIBUTING.md](./CONTRIBUTING.md) for 
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
-## 📝 License
+## License
 
 This project is licensed under the MIT License - see the [LICENSE](./LICENSE) file for details.
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 - Inspired by [cookie-session](https://github.com/expressjs/cookie-session) (Node.js)
 - Built with [go-redis](https://github.com/redis/go-redis)
 - Framework integrations: [Gin](https://github.com/gin-gonic/gin)
 
-## 📮 Support
+## Support
 
-- 🐛 [Report bugs](https://github.com/abmcmanu/sessionx/issues)
-- 💡 [Request features](https://github.com/abmcmanu/sessionx/issues)
-- 📖 [Documentation](https://github.com/abmcmanu/sessionx)
-- 🔒 [Security issues](./SECURITY.md)
+- [Report bugs](https://github.com/abmcmanu/sessionx/issues)
+- [Request features](https://github.com/abmcmanu/sessionx/issues)
+- [Documentation](https://github.com/abmcmanu/sessionx)
+- [Security issues](./SECURITY.md)
 
 ---
 
-Made with ❤️ by [abmcmanu](https://github.com/abmcmanu)
+Maintained by [abmcmanu](https://github.com/abmcmanu)
