@@ -13,6 +13,7 @@ var (
 	ErrMarshalFailed    = errors.New("failed to marshal session data")
 	ErrUnmarshalFailed  = errors.New("failed to unmarshal session data")
 	ErrEncryptionFailed = errors.New("failed to encrypt session data")
+	ErrCookieTooLarge   = errors.New("session cookie exceeds 4096 bytes")
 )
 
 type SessionError struct {

@@ -1,6 +1,8 @@
 package gin
 
 import (
+	"context"
+
 	"github.com/abmcmanu/sessionx/pkg/session"
 	"github.com/gin-gonic/gin"
 )
@@ -10,10 +12,9 @@ const SessionKey = "sessionx"
 func SessionMiddleware(manager *session.Manager) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		sess, _ := manager.Load(c.Request)
-
 		c.Set(SessionKey, sess)
+		c.Request = c.Request.WithContext(context.WithValue(c.Request.Context(), session.Key, sess))
 
-		// Wrap the response writer to intercept Write/WriteHeader calls
 		wrapped := &responseWriterWrapper{
 			ResponseWriter: c.Writer,
 			session:        sess,
@@ -23,12 +24,10 @@ func SessionMiddleware(manager *session.Manager) gin.HandlerFunc {
 
 		c.Next()
 
-		// Ensure session is saved even if no response was written
-		wrapped.ensureSaved()
+		wrapped.save()
 	}
 }
 
-// responseWriterWrapper wraps gin.ResponseWriter to save session before writing response
 type responseWriterWrapper struct {
 	gin.ResponseWriter
 	session *session.Session
@@ -36,53 +35,39 @@ type responseWriterWrapper struct {
 	saved   bool
 }
 
-// WriteHeader saves the session before writing the status code
-func (rw *responseWriterWrapper) WriteHeader(status int) {
-	if !rw.saved {
-		_ = rw.manager.Save(rw.ResponseWriter, rw.session)
-		rw.saved = true
+func (rw *responseWriterWrapper) save() {
+	if rw.saved {
+		return
 	}
+	rw.saved = true
+	_ = rw.manager.Save(rw.ResponseWriter, rw.session)
+}
+
+func (rw *responseWriterWrapper) WriteHeader(status int) {
+	rw.save()
 	rw.ResponseWriter.WriteHeader(status)
 }
 
-// Write saves the session before writing the response body
-func (rw *responseWriterWrapper) Write(b []byte) (int, error) {
-	if !rw.saved {
-		_ = rw.manager.Save(rw.ResponseWriter, rw.session)
-		rw.saved = true
-	}
-	return rw.ResponseWriter.Write(b)
-}
-
-// WriteString saves the session before writing a string
-func (rw *responseWriterWrapper) WriteString(s string) (int, error) {
-	if !rw.saved {
-		_ = rw.manager.Save(rw.ResponseWriter, rw.session)
-		rw.saved = true
-	}
-	return rw.ResponseWriter.WriteString(s)
-}
-
 func (rw *responseWriterWrapper) WriteHeaderNow() {
-	if !rw.saved {
-		_ = rw.manager.Save(rw.ResponseWriter, rw.session)
-		rw.saved = true
-	}
+	rw.save()
 	rw.ResponseWriter.WriteHeaderNow()
 }
 
-// ensureSaved guarantees the session is saved even if no write occurred
-func (rw *responseWriterWrapper) ensureSaved() {
-	if !rw.saved {
-		_ = rw.manager.Save(rw.ResponseWriter, rw.session)
-		rw.saved = true
-	}
+func (rw *responseWriterWrapper) Write(b []byte) (int, error) {
+	rw.save()
+	return rw.ResponseWriter.Write(b)
 }
 
-// Get retrieves the session from the Gin context
+func (rw *responseWriterWrapper) WriteString(s string) (int, error) {
+	rw.save()
+	return rw.ResponseWriter.WriteString(s)
+}
+
 func Get(c *gin.Context) *session.Session {
-	if v, exists := c.Get(SessionKey); exists {
-		return v.(*session.Session)
+	if v, ok := c.Get(SessionKey); ok {
+		if sess, ok := v.(*session.Session); ok {
+			return sess
+		}
 	}
 	return nil
 }

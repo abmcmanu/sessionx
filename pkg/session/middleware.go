@@ -12,9 +12,7 @@ var Key ContextKey = "sessionx"
 func (m *Manager) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		sess, _ := m.Load(r)
-
-		ctx := context.WithValue(r.Context(), Key, sess)
-		r = r.WithContext(ctx)
+		r = r.WithContext(context.WithValue(r.Context(), Key, sess))
 
 		wrapped := &responseWriterWrapper{
 			ResponseWriter: w,
@@ -24,7 +22,7 @@ func (m *Manager) Middleware(next http.Handler) http.Handler {
 
 		next.ServeHTTP(wrapped, r)
 
-		wrapped.ensureSaved()
+		wrapped.save()
 	})
 }
 
@@ -35,32 +33,38 @@ type responseWriterWrapper struct {
 	saved   bool
 }
 
-func (rw *responseWriterWrapper) WriteHeader(status int) {
-	if !rw.saved {
-		_ = rw.manager.Save(rw.ResponseWriter, rw.session)
-		rw.saved = true
+func (rw *responseWriterWrapper) save() {
+	if rw.saved {
+		return
 	}
+	rw.saved = true
+	_ = rw.manager.Save(rw.ResponseWriter, rw.session)
+}
+
+func (rw *responseWriterWrapper) WriteHeader(status int) {
+	rw.save()
 	rw.ResponseWriter.WriteHeader(status)
 }
 
 func (rw *responseWriterWrapper) Write(b []byte) (int, error) {
-	if !rw.saved {
-		_ = rw.manager.Save(rw.ResponseWriter, rw.session)
-		rw.saved = true
-	}
+	rw.save()
 	return rw.ResponseWriter.Write(b)
 }
 
-func (rw *responseWriterWrapper) ensureSaved() {
-	if !rw.saved {
-		_ = rw.manager.Save(rw.ResponseWriter, rw.session)
-		rw.saved = true
+func (rw *responseWriterWrapper) Flush() {
+	rw.save()
+	if f, ok := rw.ResponseWriter.(http.Flusher); ok {
+		f.Flush()
 	}
 }
 
+func (rw *responseWriterWrapper) Unwrap() http.ResponseWriter {
+	return rw.ResponseWriter
+}
+
 func Get(r *http.Request) *Session {
-	if v := r.Context().Value(Key); v != nil {
-		return v.(*Session)
+	if sess, ok := r.Context().Value(Key).(*Session); ok {
+		return sess
 	}
 	return nil
 }

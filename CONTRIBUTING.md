@@ -90,4 +90,4 @@ refactor: code refactoring
 
 Feel free to open an issue with your question.
 
-Thank you for making SessionX better! <�
+Thank you for making SessionX better!

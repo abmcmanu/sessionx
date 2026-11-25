@@ -8,6 +8,12 @@ type Session struct {
 	CreatedAt time.Time
 	UpdatedAt time.Time
 	RotatedAt time.Time
+
+	destroyed bool
+}
+
+func (s *Session) Destroyed() bool {
+	return s.destroyed
 }
 
 func (s *Session) AddFlash(key string, value interface{}) {

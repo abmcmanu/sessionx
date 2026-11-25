@@ -3,8 +3,8 @@ package main
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/abmcmanu/sessionx/pkg/session"
 	sessiongin "github.com/abmcmanu/sessionx/pkg/gin"
+	"github.com/abmcmanu/sessionx/pkg/session"
 	"github.com/gin-gonic/gin"
 	"net/http"
 	"net/http/httptest"

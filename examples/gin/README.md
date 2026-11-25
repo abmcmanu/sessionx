@@ -391,7 +391,7 @@ r.Use(cors.New(cors.Config{
 Ensure middleware is registered before routes:
 
 ```go
-r.Use(sessiongin.SessionMiddleware(manager)) // ← Before routes
+r.Use(sessiongin.SessionMiddleware(manager))
 
-r.GET("/", handler) // ← After middleware
+r.GET("/", handler)
 ```

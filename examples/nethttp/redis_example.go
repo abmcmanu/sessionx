@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
-	"github.com/abmcmanu/sessionx/pkg/session"
 	redisstore "github.com/abmcmanu/sessionx/optional/store/redis"
+	"github.com/abmcmanu/sessionx/pkg/session"
 	"net/http"
 	"time"
 )
@@ -128,7 +128,6 @@ func ExampleRedisAuthentication() {
 			return
 		}
 
-		sess := session.Get(r)
 		_ = manager.Destroy(w, r)
 
 		_, _ = fmt.Fprintf(w, "Logged out. Session deleted from Redis.\n")

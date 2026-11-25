@@ -8,11 +8,15 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 )
 
+const maxCookieSize = 4096
+
 type Manager struct {
-	cfg Config
+	cfg  Config
+	aead cipher.AEAD
 }
 
 func NewManager(cfg Config) (*Manager, error) {
@@ -21,26 +25,26 @@ func NewManager(cfg Config) (*Manager, error) {
 		return nil, newError("NewManager", ErrInvalidSecretKey)
 	}
 
-	return &Manager{cfg: cfg}, nil
+	block, err := aes.NewCipher(cfg.SecretKey)
+	if err != nil {
+		return nil, newError("NewManager", ErrInvalidSecretKey)
+	}
+
+	aead, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, newError("NewManager", err)
+	}
+
+	return &Manager{cfg: cfg, aead: aead}, nil
 }
 
 func (m *Manager) encrypt(data []byte) (string, error) {
-	block, err := aes.NewCipher(m.cfg.SecretKey)
-	if err != nil {
-		return "", newError("encrypt", ErrEncryptionFailed)
-	}
-
-	gcm, err := cipher.NewGCM(block)
-	if err != nil {
-		return "", newError("encrypt", ErrEncryptionFailed)
-	}
-
-	nonce := make([]byte, gcm.NonceSize())
+	nonce := make([]byte, m.aead.NonceSize())
 	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
 		return "", newError("encrypt", ErrEncryptionFailed)
 	}
 
-	encrypted := gcm.Seal(nonce, nonce, data, nil)
+	encrypted := m.aead.Seal(nonce, nonce, data, nil)
 	return base64.RawStdEncoding.EncodeToString(encrypted), nil
 }
 
@@ -50,23 +54,13 @@ func (m *Manager) decrypt(encoded string) ([]byte, error) {
 		return nil, newError("decrypt", ErrInvalidSession)
 	}
 
-	block, err := aes.NewCipher(m.cfg.SecretKey)
-	if err != nil {
-		return nil, newError("decrypt", ErrDecryptionFailed)
-	}
-
-	gcm, err := cipher.NewGCM(block)
-	if err != nil {
-		return nil, newError("decrypt", ErrDecryptionFailed)
-	}
-
-	nonceSize := gcm.NonceSize()
-	if len(raw) < nonceSize {
+	nonceSize := m.aead.NonceSize()
+	if len(raw) < nonceSize+m.aead.Overhead() {
 		return nil, newError("decrypt", ErrInvalidSession)
 	}
 
 	nonce, ciphertext := raw[:nonceSize], raw[nonceSize:]
-	decrypted, err := gcm.Open(nil, nonce, ciphertext, nil)
+	decrypted, err := m.aead.Open(nil, nonce, ciphertext, nil)
 	if err != nil {
 		return nil, newError("decrypt", ErrDecryptionFailed)
 	}
@@ -100,7 +94,17 @@ func (m *Manager) Load(r *http.Request) (*Session, error) {
 		sess = &s
 	}
 
+	if sess == nil {
+		return m.New(), nil
+	}
+	if sess.Data == nil {
+		sess.Data = map[string]interface{}{}
+	}
+
 	if m.cfg.MaxAge > 0 && time.Since(sess.UpdatedAt) > m.cfg.MaxAge {
+		if m.cfg.Store != nil {
+			_ = m.cfg.Store.Delete(sess.ID)
+		}
 		return m.New(), nil
 	}
 
@@ -123,6 +127,10 @@ func (m *Manager) New() *Session {
 }
 
 func (m *Manager) Save(w http.ResponseWriter, sess *Session) error {
+	if sess == nil || sess.destroyed {
+		return nil
+	}
+
 	sess.UpdatedAt = time.Now()
 
 	var cookieValue string
@@ -145,59 +153,68 @@ func (m *Manager) Save(w http.ResponseWriter, sess *Session) error {
 		cookieValue = encrypted
 	}
 
-	cookie := &http.Cookie{
+	cookie := m.cookie(cookieValue, int(m.cfg.MaxAge.Seconds()))
+	encoded := cookie.String()
+	if len(encoded) > maxCookieSize {
+		return newError("Save", ErrCookieTooLarge)
+	}
+
+	w.Header().Add("Set-Cookie", encoded)
+	return nil
+}
+
+func (m *Manager) cookie(value string, maxAge int) *http.Cookie {
+	return &http.Cookie{
 		Name:     m.cfg.CookieName,
-		Value:    cookieValue,
+		Value:    value,
 		Path:     m.cfg.Path,
 		Domain:   m.cfg.Domain,
 		HttpOnly: m.cfg.HttpOnly,
 		Secure:   m.cfg.Secure,
 		SameSite: parseSameSite(m.cfg.SameSite),
-		MaxAge:   int(m.cfg.MaxAge.Seconds()),
+		MaxAge:   maxAge,
 	}
-
-	w.Header().Add("Set-Cookie", cookie.String())
-	return nil
 }
 
 func (m *Manager) Destroy(w http.ResponseWriter, r *http.Request) error {
+	sess := Get(r)
+	if sess != nil {
+		sess.destroyed = true
+	}
+
 	if m.cfg.Store != nil {
-		c, err := r.Cookie(m.cfg.CookieName)
-		if err == nil {
+		if sess != nil {
+			_ = m.cfg.Store.Delete(sess.ID)
+		}
+		if c, err := r.Cookie(m.cfg.CookieName); err == nil {
 			_ = m.cfg.Store.Delete(c.Value)
 		}
 	}
 
-	expired := &http.Cookie{
-		Name:     m.cfg.CookieName,
-		Value:    "",
-		MaxAge:   -1,
-		Path:     m.cfg.Path,
-		HttpOnly: true,
-	}
-	http.SetCookie(w, expired)
+	http.SetCookie(w, m.cookie("", -1))
 	return nil
 }
 
 func (m *Manager) Rotate(sess *Session) {
+	if m.cfg.Store != nil && sess.ID != "" {
+		_ = m.cfg.Store.Delete(sess.ID)
+	}
 	sess.ID = m.newID()
 	sess.RotatedAt = time.Now()
 }
 
 func (m *Manager) newID() string {
-	b := make([]byte, 16)
+	b := make([]byte, 32)
 	_, _ = io.ReadFull(rand.Reader, b)
 	return base64.RawURLEncoding.EncodeToString(b)
 }
 
 func parseSameSite(s string) http.SameSite {
-	switch s {
-	case "Strict":
+	switch strings.ToLower(s) {
+	case "strict":
 		return http.SameSiteStrictMode
-	case "None":
+	case "none":
 		return http.SameSiteNoneMode
-	case "Lax":
-		return http.SameSiteLaxMode
 	default:
 		return http.SameSiteLaxMode
 	}
